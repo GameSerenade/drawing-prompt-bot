@@ -1,11 +1,12 @@
 import discord
 from discord.ext import commands, tasks
 import os
-import json
 from datetime import datetime
 
 TOKEN = os.getenv("TOKEN")
-CHANNEL_ID = 1520819535836352603
+
+PROMPT_CHANNEL_ID = 1520819535836352603
+BOT_DATA_CHANNEL_ID = 1521158662402347018
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -13,7 +14,6 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 prompts = [
-"Draw a tiny dragon living inside a teacup.",
 "Draw an abandoned lighthouse covered in vines.",
 "Draw a floating island held up by giant roots.",
 "Draw a cat wearing a space helmet exploring Mars.",
@@ -114,56 +114,54 @@ prompts = [
 "Draw a forest that changes seasons in one day."
 ]
 
-DAY_FILE = "day.json"
 
-def load_day():
-    if os.path.exists(DAY_FILE):
-        with open(DAY_FILE, "r") as f:
-            return json.load(f)["day"]
-    return 0
+async def get_state():
+    channel = await bot.fetch_channel(BOT_DATA_CHANNEL_ID)
+    messages = [m async for m in channel.history(limit=1)]
 
-def save_day(day):
-    with open(DAY_FILE, "w") as f:
-        json.dump({"day": day}, f)
+    if not messages:
+        msg = await channel.send("0")
+        return 0, msg
 
-current_day = load_day()
+    msg = messages[0]
+
+    try:
+        return int(msg.content), msg
+    except:
+        await msg.edit(content="0")
+        return 0, msg
 
 
-# 🟢 DAILY PROMPT
+async def save_state(index, msg):
+    await msg.edit(content=str(index))
+
+
 @tasks.loop(minutes=1)
 async def daily_prompt():
-    global current_day
+    channel = await bot.fetch_channel(PROMPT_CHANNEL_ID)
 
-    now = datetime.now()
+    index, msg = await get_state()
 
-    if now.hour == 0 and now.minute == 0:
-        channel = bot.get_channel(CHANNEL_ID)
+    if index >= len(prompts):
+        return
 
-        if channel is None:
-            channel = await bot.fetch_channel(CHANNEL_ID)
+    await channel.send(
+        f"🎨 Daily Drawing Prompt\n\n{prompts[index]}"
+    )
 
-        if channel and current_day < len(prompts):
-            await channel.send(
-                f"🎨 Daily Drawing Prompt (Day {current_day + 1}):\n\n"
-                + prompts[current_day]
-            )
-
-            current_day += 1
-            save_day(current_day)
+    index += 1
+    await save_state(index, msg)
 
 
-# 🟢 COMMAND
 @bot.command()
 async def prompt(ctx):
-    day = load_day()
+    index, _ = await get_state()
 
-    if day < len(prompts):
-        await ctx.send(
-            f"🎨 Today’s Prompt (Day {day + 1}):\n\n"
-            + prompts[day]
-        )
-    else:
-        await ctx.send("All prompts are completed 🎉")
+    if index >= len(prompts):
+        await ctx.send("You've completed every prompt! 🎉")
+        return
+
+    await ctx.send(f"🎨 Current Prompt\n\n{prompts[index]}")
 
 
 @bot.event
