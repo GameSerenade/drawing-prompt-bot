@@ -115,32 +115,43 @@ prompts = [
 ]
 
 
+# ---------------- STATE (DISCORD STORAGE) ----------------
+
 async def get_state():
     channel = await bot.fetch_channel(BOT_DATA_CHANNEL_ID)
     messages = [m async for m in channel.history(limit=1)]
 
     if not messages:
-        msg = await channel.send("0")
-        return 0, msg
+        msg = await channel.send("0|none")
+        return 0, "none", msg
 
     msg = messages[0]
 
     try:
-        return int(msg.content), msg
+        index, last_date = msg.content.split("|")
+        return int(index), last_date, msg
     except:
-        await msg.edit(content="0")
-        return 0, msg
+        await msg.edit(content="0|none")
+        return 0, "none", msg
 
 
-async def save_state(index, msg):
-    await msg.edit(content=str(index))
+async def save_state(index, date_str, msg):
+    await msg.edit(content=f"{index}|{date_str}")
 
+
+# ---------------- DAILY POST ----------------
 
 @tasks.loop(minutes=1)
 async def daily_prompt():
     channel = await bot.fetch_channel(PROMPT_CHANNEL_ID)
 
-    index, msg = await get_state()
+    index, last_date, msg = await get_state()
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # ONLY ONE POST PER DAY
+    if last_date == today:
+        return
 
     if index >= len(prompts):
         return
@@ -150,12 +161,14 @@ async def daily_prompt():
     )
 
     index += 1
-    await save_state(index, msg)
+    await save_state(index, today, msg)
 
+
+# ---------------- COMMAND ----------------
 
 @bot.command()
 async def prompt(ctx):
-    index, _ = await get_state()
+    index, _, _ = await get_state()
 
     if index >= len(prompts):
         await ctx.send("You've completed every prompt! 🎉")
@@ -163,6 +176,8 @@ async def prompt(ctx):
 
     await ctx.send(f"🎨 Current Prompt\n\n{prompts[index]}")
 
+
+# ---------------- START ----------------
 
 @bot.event
 async def on_ready():
