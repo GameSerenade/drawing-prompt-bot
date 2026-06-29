@@ -1,7 +1,8 @@
 import discord
 from discord.ext import tasks
-import random
 import os
+import json
+from datetime import datetime
 
 TOKEN = os.getenv("TOKEN")
 CHANNEL_ID = 1520819535836352603
@@ -32,7 +33,7 @@ prompts = [
 "Draw a penguin explorer in icy ruins.",
 "Draw a garden growing on an old piano.",
 "Draw a castle made of ice in the ocean.",
-"Draw a traveler meeting a friendly spirit of nature (non-religious, symbolic).",
+"Draw a traveler meeting a friendly spirit of nature (symbolic).",
 "Draw a bridge between two floating islands.",
 "Draw a cat sleeping on top of a stack of books.",
 "Draw a forest filled with glowing fireflies.",
@@ -57,15 +58,15 @@ prompts = [
 "Draw a rabbit wearing an adventurers backpack.",
 "Draw a mountain with a glowing heart-shaped cave.",
 "Draw a star falling into a lake.",
-"Draw a knight made of shadows (no magic, just silhouette design).",
+"Draw a knight made of shadows (silhouette design).",
 "Draw a forest where everything is upside down.",
 "Draw a cat chasing glowing butterflies.",
 "Draw a village inside a giant snow globe.",
 "Draw a river flowing through the sky.",
-"Draw a traveler with a floating mechanical staff (sci-fi tool).",
+"Draw a traveler with a floating mechanical staff.",
 "Draw a city made of paper structures.",
 "Draw a fox sitting on a crescent moon.",
-"Draw a giant book opening into a world of cities and landscapes.",
+"Draw a giant book opening into a world of cities.",
 "Draw a castle surrounded by thick fog.",
 "Draw a dragon sleeping under cherry blossoms.",
 "Draw a glowing cave under the ocean.",
@@ -85,7 +86,7 @@ prompts = [
 "Draw a painter creating a world on a giant canvas.",
 "Draw a hidden kingdom under the sea.",
 "Draw a mountain floating above clouds.",
-"Draw a glowing sword stuck in stone (ancient, not magical focus).",
+"Draw a glowing sword stuck in stone.",
 "Draw a village protected by giant wolves.",
 "Draw a starry sky reflected in black ink water.",
 "Draw a robot learning to paint a landscape.",
@@ -98,27 +99,50 @@ prompts = [
 "Draw a glowing river at night.",
 "Draw a city built inside a giant tree.",
 "Draw a fox wearing a crown in an old ruined kingdom.",
-"Draw a portal shaped like a mirror reflecting another world.",
-"Draw a traveler meeting their future self in a peaceful setting.",
+"Draw a portal shaped like a mirror to another world.",
+"Draw a traveler meeting their future self in peace.",
 "Draw a floating island shaped like a whale.",
 "Draw a dragon sleeping in a volcano.",
 "Draw a castle hidden inside clouds.",
 "Draw a world inside a glass orb.",
 "Draw a cat watching stars fall.",
-"Draw a forest that changes color with the seasons in one day."
+"Draw a forest that changes seasons in one day."
 ]
+
+DAY_FILE = "day.json"
+
+def load_day():
+    if os.path.exists(DAY_FILE):
+        with open(DAY_FILE, "r") as f:
+            return json.load(f)["day"]
+    return 0
+
+def save_day(day):
+    with open(DAY_FILE, "w") as f:
+        json.dump({"day": day}, f)
 
 intents = discord.Intents.default()
 client = discord.Client(intents=intents)
 
-def get_prompt():
-    return random.choice(prompts)
+current_day = load_day()
 
-@tasks.loop(hours=24)
+@tasks.loop(minutes=1)
 async def daily_prompt():
-    channel = client.get_channel(CHANNEL_ID)
-    if channel:
-        await channel.send("🎨 Daily Drawing Prompt:\n\n" + get_prompt())
+    global current_day
+
+    now = datetime.now()
+
+    if now.hour == 0 and now.minute == 0:
+        channel = client.get_channel(CHANNEL_ID)
+
+        if channel and current_day < len(prompts):
+            await channel.send(
+                f"🎨 Daily Drawing Prompt (Day {current_day + 1}):\n\n"
+                + prompts[current_day]
+            )
+
+            current_day += 1
+            save_day(current_day)
 
 @client.event
 async def on_ready():
@@ -126,4 +150,3 @@ async def on_ready():
     daily_prompt.start()
 
 client.run(TOKEN)
-
