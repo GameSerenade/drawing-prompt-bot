@@ -115,7 +115,7 @@ prompts = [
 ]
 
 
-# ---------------- STATE (DISCORD STORAGE) ----------------
+# ---------------- STATE ----------------
 
 async def get_state():
     channel = await bot.fetch_channel(BOT_DATA_CHANNEL_ID)
@@ -139,7 +139,7 @@ async def save_state(index, date_str, msg):
     await msg.edit(content=f"{index}|{date_str}")
 
 
-# ---------------- DAILY POST ----------------
+# ---------------- DAILY LOOP ----------------
 
 @tasks.loop(minutes=1)
 async def daily_prompt():
@@ -149,7 +149,7 @@ async def daily_prompt():
 
     today = datetime.now().strftime("%Y-%m-%d")
 
-    # ONLY ONE POST PER DAY
+    # DO NOT POST MORE THAN ONCE PER DAY
     if last_date == today:
         return
 
